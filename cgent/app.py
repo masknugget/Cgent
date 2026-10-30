@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request, Response
 from langchain_core.language_models import BaseChatModel
 
 from cgent.agent.factory import AgentFactory
+from cgent.agent.registry import InvocationRegistry
 from cgent.agent.runner import AgentRunner
 from cgent.api.errors import install_error_handlers
 from cgent.api.router import create_api_router
@@ -31,10 +32,12 @@ def create_app(settings: Settings, *, model: BaseChatModel | None = None) -> Fas
         raise ValueError("A chat model is required")
     factory = AgentFactory(settings, workspaces, shell, chat_model)
     runner = AgentRunner(settings, factory)
+    invocations = InvocationRegistry(runner, settings.invocation_result_ttl_seconds)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         yield
+        await invocations.close()
         await runner.close()
         await shell.close()
         if model_factory is not None:
@@ -52,6 +55,7 @@ def create_app(settings: Settings, *, model: BaseChatModel | None = None) -> Fas
     app.state.workspaces = workspaces
     app.state.shell_service = shell
     app.state.agent_runner = runner
+    app.state.invocations = invocations
     app.include_router(create_api_router(settings))
     install_error_handlers(app)
 

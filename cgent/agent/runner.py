@@ -66,11 +66,15 @@ class AgentRunner:
         self._closing = False
 
     async def invoke(
-        self, workspace_id: str, text: str, timeout_seconds: float | None = None
+        self,
+        workspace_id: str,
+        text: str,
+        timeout_seconds: float | None = None,
+        invocation_id: str | None = None,
     ) -> InvocationResult:
         if self._closing:
             raise ServiceStoppingError()
-        invocation_id = new_id("inv")
+        invocation_id = invocation_id or new_id("inv")
         token = set_invocation_id(invocation_id)
         task = asyncio.current_task()
         if task is not None:

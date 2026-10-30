@@ -71,6 +71,16 @@ class AgentTimeoutError(HarnessError):
         super().__init__("agent_timeout", "The Agent invocation exceeded its deadline", 504)
 
 
+class InvocationNotFoundError(HarnessError):
+    def __init__(self) -> None:
+        super().__init__("invocation_not_found", "The invocation was not found", 404)
+
+
+class InvocationNotCancellableError(HarnessError):
+    def __init__(self) -> None:
+        super().__init__("invocation_not_cancellable", "The invocation already finished", 409)
+
+
 class ModelUnavailableError(HarnessError):
     def __init__(self, message: str = "The model provider is unavailable") -> None:
         super().__init__("model_unavailable", message, 502)

@@ -7,6 +7,8 @@ Run the service first, then execute this file from the project root:
 Replace WORKSPACE_ID and BASE_URL with your local values if they differ.
 """
 
+import time
+
 import requests
 
 BASE_URL = "http://127.0.0.1:8000"
@@ -104,15 +106,33 @@ response = requests.post(
 assert response.status_code == 200, response.text
 print("POST /v1/shell/executions:", response.json())
 
-# POST /v1/agent/invocations
+# POST /v1/agent/invocations accepts asynchronously and returns 202.
 response = requests.post(
     f"{BASE_URL}/v1/agent/invocations",
     headers=HEADERS,
     json={"input": "Reply exactly: ready", "timeout_seconds": 120},
-    timeout=180,
+    timeout=30,
 )
-assert response.status_code == 200, response.text
-print("POST /v1/agent/invocations:", response.json()["output"])
+assert response.status_code == 202, response.text
+invocation_id = response.json()["invocation_id"]
+
+# GET /v1/agent/invocations/{invocation_id} polls until the invocation finishes.
+deadline = time.monotonic() + 180
+while True:
+    response = requests.get(
+        f"{BASE_URL}/v1/agent/invocations/{invocation_id}",
+        headers=HEADERS,
+        timeout=30,
+    )
+    assert response.status_code == 200, response.text
+    invocation = response.json()
+    if invocation["status"] != "pending":
+        break
+    assert time.monotonic() < deadline, "The invocation did not finish in time"
+    time.sleep(2)
+
+assert invocation["status"] == "succeeded", invocation
+print("POST /v1/agent/invocations:", invocation["output"])
 
 # DELETE /v1/files/{path}
 response = requests.delete(f"{BASE_URL}/v1/files/{FILE_PATH}", headers=HEADERS, timeout=10)

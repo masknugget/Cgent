@@ -40,7 +40,8 @@ def create_api_router(settings: Settings) -> APIRouter:
         descriptors = [
             _tool(
                 "agent_invoke",
-                "Run one synchronous coding Agent invocation.",
+                "Submit one asynchronous coding Agent invocation; poll "
+                "GET /v1/agent/invocations/{invocation_id} for the result.",
                 "POST",
                 "/v1/agent/invocations",
                 InvocationRequest,

@@ -106,6 +106,7 @@ class Settings:
     model_max_retries: int = 3
     agent_timeout_seconds: float = 600
     agent_max_steps: int = 50
+    invocation_result_ttl_seconds: float = 600
     shell_allowlist: tuple[str, ...] = ()
     shell_timeout_seconds: float = 300
     shell_max_timeout_seconds: float = 600
@@ -144,6 +145,7 @@ class Settings:
         for name in (
             "model_timeout_seconds",
             "agent_timeout_seconds",
+            "invocation_result_ttl_seconds",
             "shell_timeout_seconds",
             "shell_max_timeout_seconds",
             "shell_max_output_bytes",
@@ -193,6 +195,7 @@ class Settings:
             model_max_retries=_integer("HARNESS_MODEL_MAX_RETRIES", 3),
             agent_timeout_seconds=_number("HARNESS_AGENT_TIMEOUT_SECONDS", 600),
             agent_max_steps=_integer("HARNESS_AGENT_MAX_STEPS", 50),
+            invocation_result_ttl_seconds=_number("HARNESS_INVOCATION_RESULT_TTL_SECONDS", 600),
             shell_allowlist=_csv(os.environ.get("HARNESS_SHELL_ALLOWLIST")),
             shell_timeout_seconds=_number("HARNESS_SHELL_TIMEOUT_SECONDS", 300),
             shell_max_timeout_seconds=_number("HARNESS_SHELL_MAX_TIMEOUT_SECONDS", 600),

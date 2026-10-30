@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 from conftest import FakeToolCallingModel, app_client, python_command
@@ -5,6 +6,17 @@ from langchain_core.messages import AIMessage
 
 from cgent.app import create_app
 from cgent.config import Settings
+
+
+async def _wait_for_finished(client, invocation_id: str) -> dict:
+    for _ in range(500):
+        response = await client.get(f"/v1/agent/invocations/{invocation_id}")
+        assert response.status_code == 200
+        result = response.json()
+        if result["status"] != "pending":
+            return result
+        await asyncio.sleep(0.01)
+    raise AssertionError("The invocation did not finish in time")
 
 
 async def test_agent_reads_edits_executes_and_summarizes(
@@ -68,9 +80,11 @@ async def test_agent_reads_edits_executes_and_summarizes(
             json={"input": "Read, update and verify note.txt"},
             headers=workspace_headers,
         )
+        assert response.status_code == 202
+        invocation_id = response.json()["invocation_id"]
 
-    assert response.status_code == 200
-    result = response.json()
+        result = await _wait_for_finished(client, invocation_id)
+
     assert result["status"] == "succeeded"
     assert result["output"] == "read-edit-execute-verified"
     assert [call["name"] for call in result["tool_calls"]] == [

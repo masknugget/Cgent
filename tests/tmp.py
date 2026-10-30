@@ -23,10 +23,10 @@ MODEL = "GPT-4.1-nano"
 # e.g. UAT GCP Chat Completion URL: "https://gaip-api-uat.hsbc-12152296-gaipuat-dev.dev.gcp.cloud.hk.hsbc/etiv-ssvc-aigateway-..."
 BASE_URL = "https://gaip-api-uat.hsbc-12152296-gaipuat-dev.dev.gcp.cloud.hk.hsbc/etiv-ssvc-aigateway-ea-chatcompletion-uat-int..."
 
-#e.g. UCXXXXXXX
+# e.g. UCXXXXXXX
 USER_ID = "UC0003983"
 # USER_ID = "UC000047xx"
-AUTH_METHOD = os.getenv('AUTH_METHOD', "B2B")  # Default to B2B
+AUTH_METHOD = os.getenv("AUTH_METHOD", "B2B")  # Default to B2B
 
 # B2B Service Account Credentials
 SERVICE_ACCOUNT = "HK-SVCAT-IPO-DEV"
@@ -46,6 +46,7 @@ httpx_client = httpx.Client(http2=True, verify=ctx)
 # ====================
 ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 httpx_client = httpx.Client(http2=True, verify=ctx)
+
 
 def _get_service_account_jwt(service_account: str, password: str):
     """Fetches a JWT from the B2B DSP service."""
@@ -76,7 +77,7 @@ headers = {
     "X-HSBC-E2E-Trust-Token": jwt,
     "Content-Type": "application/json",
     "x-correlation-id": str(uuid.uuid4()),
-    "x-usersession-id": str(uuid.uuid4())
+    "x-usersession-id": str(uuid.uuid4()),
 }
 
 # ====================
@@ -85,12 +86,10 @@ headers = {
 # Replace with your model name and content
 data = {
     "model": MODEL,
-    "messages": [
-        {"role": "user", "content": "歌词, 给一首热门歌曲的歌词，用中文"}
-    ],
+    "messages": [{"role": "user", "content": "歌词, 给一首热门歌曲的歌词，用中文"}],
     "max_tokens": 10000,
     "user": USER_ID,
-    "stream": True
+    "stream": True,
 }
 
 response = requests.post(BASE_URL, headers=headers, json=data)

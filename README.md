@@ -6,7 +6,7 @@ Cgent 是一个独立、单进程的 Python REST Agent Harness。它在 FastAPI 
 
 ## P0 范围
 
-- 同步 `POST /v1/agent/invocations`，无数据库、无持久 thread、无异步 run 轮询。
+- `POST /v1/agent/invocations` 异步提交、`GET /v1/agent/invocations/{id}` 轮询结果，无数据库、无持久 thread。
 - 固定 `workspace_id` 映射，文件路径限制在对应根目录内。
 - UTF-8 文本读取、分页、目录列表、glob、字面量 grep、原子写、精确编辑和单文件删除。
 - Windows 与 POSIX 的直接程序执行：allowlist、环境白名单、超时、并发上限、首尾输出窗口和进程清理。
@@ -78,6 +78,7 @@ python -m cgent
 | `HARNESS_MODEL_MAX_RETRIES` | `3` | Provider client 重试次数 |
 | `HARNESS_AGENT_TIMEOUT_SECONDS` | `600` | 整体 invocation 上限 |
 | `HARNESS_AGENT_MAX_STEPS` | `50` | LangGraph recursion limit |
+| `HARNESS_INVOCATION_RESULT_TTL_SECONDS` | `600` | 完成后调用结果保留时长，过期查询返回 404 |
 | `HARNESS_SHELL_ALLOWLIST` | 空 | 逗号分隔的可执行文件名或路径 |
 | `HARNESS_SHELL_TIMEOUT_SECONDS` | `300` | 默认命令超时 |
 | `HARNESS_SHELL_MAX_TIMEOUT_SECONDS` | `600` | 请求可设置的最大命令超时 |
@@ -142,7 +143,9 @@ HARNESS_SKILLS_DIRS=F:/shared/skills,F:/project/skills
 | `GET /redoc` | ReDoc 接口文档 |
 | `GET /openapi.json` | 机器可读 OpenAPI schema |
 | `GET /v1/tools` | 工具与输入 schema 发现 |
-| `POST /v1/agent/invocations` | 同步 Agent 调用 |
+| `POST /v1/agent/invocations` | 异步提交 Agent 调用，返回 `202` 和 `invocation_id` |
+| `GET /v1/agent/invocations/{invocation_id}` | 查询调用状态与结果（完成后保留至 TTL 过期） |
+| `DELETE /v1/agent/invocations/{invocation_id}` | 取消仍在 pending 的调用 |
 | `GET /v1/files` | `mode=list\|glob\|grep` |
 | `GET /v1/files/{path}` | 文本读取，`offset`/`limit` 分页 |
 | `PUT /v1/files/{path}` | 创建或原子覆盖文本 |
@@ -153,11 +156,18 @@ HARNESS_SKILLS_DIRS=F:/shared/skills,F:/project/skills
 Agent 示例：
 
 ```bash
+# 提交：立即返回 202 和 invocation_id
 curl http://127.0.0.1:8000/v1/agent/invocations \
   -H 'X-Workspace-ID: project' \
   -H 'Content-Type: application/json' \
   -d '{"input":"阅读项目并修复一个聚焦问题，运行相关验证","timeout_seconds":600}'
+
+# 轮询：status 为 pending / succeeded / failed / cancelled
+curl http://127.0.0.1:8000/v1/agent/invocations/inv_... \
+  -H 'X-Workspace-ID: project'
 ```
+
+调用结果在完成后保留 `HARNESS_INVOCATION_RESULT_TTL_SECONDS`（默认 600 秒）供轮询，之后查询返回 404。调用方断连不会中断已提交的调用；服务重启会丢失所有内存中的调用记录。
 
 文件写入与精确编辑：
 
