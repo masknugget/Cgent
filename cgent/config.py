@@ -56,6 +56,12 @@ def _csv(value: str | None, default: tuple[str, ...] = ()) -> tuple[str, ...]:
     return tuple(item.strip() for item in value.split(",") if item.strip())
 
 
+def _paths(value: str | None) -> tuple[Path, ...]:
+    if not value:
+        return ()
+    return tuple(Path(item).expanduser().resolve() for item in _csv(value))
+
+
 def _decode_workspaces(value: str) -> object:
     try:
         return json.loads(value)
@@ -91,6 +97,8 @@ class Settings:
     workspaces: Mapping[str, Path]
     model: str
     model_api_key: str = field(repr=False)
+    model_adapter: str = "http"
+    skills_dirs: tuple[Path, ...] = ()
     host: str = "127.0.0.1"
     port: int = 8000
     model_base_url: str = "https://api.openai.com/v1"
@@ -112,9 +120,15 @@ class Settings:
     enable_direct_tools: bool = True
 
     def __post_init__(self) -> None:
-        for name in ("model", "model_api_key", "model_base_url", "host"):
+        for name in ("model_base_url", "host"):
             if not getattr(self, name).strip():
                 raise ValueError(f"{name} must not be empty")
+        if self.model_adapter not in {"http", "openai", "custom"}:
+            raise ValueError("model_adapter must be http, openai or custom")
+        if self.model_adapter != "custom":
+            for name in ("model", "model_api_key"):
+                if not getattr(self, name).strip():
+                    raise ValueError(f"{name} must not be empty")
         if self.host not in _LOOPBACK_HOSTS:
             raise ValueError("host must be a loopback address")
         if not self.workspaces:
@@ -124,6 +138,9 @@ class Settings:
                 raise ValueError(f"Invalid workspace ID: {workspace_id!r}")
             if not root.is_dir():
                 raise ValueError(f"Workspace {workspace_id!r} is not an existing directory")
+        for root in self.skills_dirs:
+            if not root.is_dir():
+                raise ValueError(f"Skills directory does not exist: {root}")
         for name in (
             "model_timeout_seconds",
             "agent_timeout_seconds",
@@ -152,21 +169,21 @@ class Settings:
     @classmethod
     def from_env(cls, dotenv_path: str | Path | None = None) -> "Settings":
         load_dotenv(dotenv_path=dotenv_path, override=False)
-        required = {
-            name: os.environ.get(name)
-            for name in (
-                "HARNESS_WORKSPACES",
-                "HARNESS_MODEL",
-                "HARNESS_MODEL_API_KEY",
-            )
-        }
+        required = {"HARNESS_WORKSPACES": os.environ.get("HARNESS_WORKSPACES")}
+        adapter = os.environ.get("HARNESS_MODEL_ADAPTER", "http").strip().lower()
+        # The custom adapter hardcodes its model config, so no model env vars are needed.
+        if adapter != "custom":
+            required["HARNESS_MODEL"] = os.environ.get("HARNESS_MODEL")
+            required["HARNESS_MODEL_API_KEY"] = os.environ.get("HARNESS_MODEL_API_KEY")
         missing = [name for name, value in required.items() if not value]
         if missing:
             raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
         return cls(
             workspaces=_workspaces(required["HARNESS_WORKSPACES"] or ""),
-            model=required["HARNESS_MODEL"] or "",
-            model_api_key=required["HARNESS_MODEL_API_KEY"] or "",
+            model=required.get("HARNESS_MODEL") or "",
+            model_api_key=required.get("HARNESS_MODEL_API_KEY") or "",
+            model_adapter=adapter,
+            skills_dirs=_paths(os.environ.get("HARNESS_SKILLS_DIRS")),
             host=os.environ.get("HARNESS_HOST", "127.0.0.1"),
             port=_integer("HARNESS_PORT", 8000),
             model_base_url=os.environ.get(

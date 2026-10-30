@@ -1,7 +1,8 @@
 """DeepAgents graph assembly with fixed local tools and no persistence."""
 
+from collections.abc import Sequence
 from importlib.resources import files
-from typing import Protocol
+from typing import Any, Protocol, cast
 
 from deepagents import (
     GeneralPurposeSubagentProfile,
@@ -9,12 +10,14 @@ from deepagents import (
     create_deep_agent,
     register_harness_profile,
 )
+from langchain.agents.middleware.types import AgentMiddleware
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from cgent.agent.backend import CgentBackend
 from cgent.agent.middleware import ModelCallTimeoutMiddleware
+from cgent.agent.skills import load_skills_middleware
 from cgent.config import Settings
 from cgent.execution.files import FileService
 from cgent.execution.shell import ShellService
@@ -39,6 +42,7 @@ class AgentFactory:
         self._workspaces = workspaces
         self._shell = shell
         self._model = model
+        self._skills = load_skills_middleware(settings)
         self._prompt = (
             files("cgent").joinpath("resources/prompts/system.md").read_text(encoding="utf-8")
         )
@@ -69,10 +73,18 @@ class AgentFactory:
             max_results=self._settings.max_search_results,
         )
         backend = CgentBackend(workspace, file_service, self._shell)
+        middleware = [
+            item
+            for item in (
+                self._skills,
+                ModelCallTimeoutMiddleware(self._settings.model_timeout_seconds),
+            )
+            if item is not None
+        ]
         return create_deep_agent(
             model=self._model,
             system_prompt=self._prompt,
             backend=backend,
-            middleware=(ModelCallTimeoutMiddleware(self._settings.model_timeout_seconds),),
+            middleware=cast(Sequence[AgentMiddleware[Any, None]], tuple(middleware)),
             checkpointer=None,
         )

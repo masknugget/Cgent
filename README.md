@@ -11,6 +11,7 @@ Cgent 是一个独立、单进程的 Python REST Agent Harness。它在 FastAPI 
 - UTF-8 文本读取、分页、目录列表、glob、字面量 grep、原子写、精确编辑和单文件删除。
 - Windows 与 POSIX 的直接程序执行：allowlist、环境白名单、超时、并发上限、首尾输出窗口和进程清理。
 - OpenAI-compatible Chat Completions Provider，进程内 DeepAgents 工具循环。
+- 可配置宿主机 skills 目录，Agent 按 `SKILL.md` 元数据按需读取。
 - 本机无认证调用、`X-Request-ID`、统一错误结构、结构化 JSON 日志和 OpenAPI。
 - 单 Python 进程 Web 应用，无需构建或安装应用包。
 
@@ -69,6 +70,8 @@ python -m cgent
 | `HARNESS_MODEL` | 必填 | Provider 模型 ID |
 | `HARNESS_MODEL_API_KEY` | 必填 | 只用于模型 client，不传给子进程 |
 | `HARNESS_MODEL_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible API 地址 |
+| `HARNESS_MODEL_ADAPTER` | `http` | `http` 使用 requests 直连；`openai` 使用官方 SDK |
+| `HARNESS_SKILLS_DIRS` | 空 | 逗号分隔的宿主机 skills 根目录；多个目录按顺序加载，后者覆盖同名 skill |
 | `HARNESS_HOST` | `127.0.0.1` | 监听地址，仅允许 `127.0.0.1`、`localhost` 或 `::1` |
 | `HARNESS_PORT` | `8000` | 监听端口 |
 | `HARNESS_MODEL_TIMEOUT_SECONDS` | `600` | 单次模型调用上限 |
@@ -87,6 +90,46 @@ python -m cgent
 | `HARNESS_MAX_FILE_BYTES` | `2097152` | 单文本文件读写上限 |
 | `HARNESS_MAX_SEARCH_RESULTS` | `1000` | 单次 glob/grep/list 的结果上限 |
 | `HARNESS_ENABLE_DIRECT_TOOLS` | `true` | 是否暴露直接文件/Shell 路由 |
+
+## Skills
+
+Cgent 支持在创建 Agent 时装载 DeepAgents skills。推荐通过环境变量指定宿主机目录：
+
+```dotenv
+HARNESS_SKILLS_DIRS=F:/path/to/skills
+```
+
+目录结构为：
+
+```text
+skills/
+└── demo-skill/
+    ├── SKILL.md
+    └── helper.py          # 可选
+```
+
+`SKILL.md` 需要包含 Agent Skills 元数据，例如：
+
+```markdown
+---
+name: demo-skill
+description: Describe when and how to use this skill
+---
+
+# Demo Skill
+
+具体的执行说明。
+```
+
+多个目录可用逗号分隔：
+
+```dotenv
+HARNESS_SKILLS_DIRS=F:/shared/skills,F:/project/skills
+```
+
+目录按从左到右顺序加载；不同目录存在同名 skill 时，后面的目录覆盖前面的目录。配置目录会在启动时读取，并映射为 Agent 内部只读虚拟文件，不会出现在 workspace 文件列表中，也不能通过 Agent 文件工具修改。修改 skills 后需要重启服务。
+
+其他可行但当前未作为默认实现的方式包括：workspace 内固定 `/skills/`、应用包内置 skills、REST 请求按 invocation 选择 skills，以及远程 skills registry。前两种适合后续作为本地扩展；后两种会引入额外 API、缓存和信任边界，建议单独评审后再做。
 
 ## REST API
 

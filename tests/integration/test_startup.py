@@ -17,11 +17,20 @@ def test_settings_load_independent_environment(
     monkeypatch.setenv("HARNESS_HOST", "127.0.0.1")
     monkeypatch.setenv("HARNESS_MODEL", "model-id")
     monkeypatch.setenv("HARNESS_MODEL_API_KEY", "model-secret")
+    monkeypatch.delenv("HARNESS_MODEL_ADAPTER", raising=False)
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    monkeypatch.setenv("HARNESS_SKILLS_DIRS", str(skills_dir))
 
     settings = Settings.from_env()
 
     assert settings.workspaces == {"project": tmp_path.resolve()}
     assert settings.model == "model-id"
+    assert settings.model_adapter == "http"
+    assert settings.skills_dirs == (skills_dir.resolve(),)
+
+    monkeypatch.setenv("HARNESS_MODEL_ADAPTER", "OPENAI")
+    assert Settings.from_env().model_adapter == "openai"
 
 
 def test_settings_fail_fast_for_missing_configuration(

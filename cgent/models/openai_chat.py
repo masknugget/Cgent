@@ -10,13 +10,7 @@ from langchain_core.callbacks import (
 )
 from langchain_core.language_models import BaseChatModel, LanguageModelInput
 from langchain_core.language_models.base import LangSmithParams
-from langchain_core.messages import (
-    AIMessage,
-    BaseMessage,
-    HumanMessage,
-    SystemMessage,
-    ToolMessage,
-)
+from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool
@@ -25,63 +19,7 @@ from openai import AsyncOpenAI, OpenAIError
 from pydantic import ConfigDict
 
 from cgent.errors import ModelUnavailableError
-
-
-def _text(content: object) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts: list[str] = []
-        for block in content:
-            if isinstance(block, str):
-                parts.append(block)
-            elif isinstance(block, dict) and block.get("type") == "text":
-                text = block.get("text")
-                if isinstance(text, str):
-                    parts.append(text)
-            else:
-                raise ValueError("Cgent P0 supports only text message content")
-        return "".join(parts)
-    raise ValueError("Cgent P0 supports only text message content")
-
-
-def _messages(messages: Sequence[BaseMessage]) -> list[dict[str, Any]]:
-    converted: list[dict[str, Any]] = []
-    for message in messages:
-        content = _text(message.content)
-        if isinstance(message, SystemMessage):
-            converted.append({"role": "system", "content": content})
-        elif isinstance(message, HumanMessage):
-            converted.append({"role": "user", "content": content})
-        elif isinstance(message, ToolMessage):
-            converted.append(
-                {
-                    "role": "tool",
-                    "content": content,
-                    "tool_call_id": message.tool_call_id,
-                }
-            )
-        elif isinstance(message, AIMessage):
-            item: dict[str, Any] = {
-                "role": "assistant",
-                "content": content or None if message.tool_calls else content,
-            }
-            if message.tool_calls:
-                item["tool_calls"] = [
-                    {
-                        "id": call["id"],
-                        "type": "function",
-                        "function": {
-                            "name": call["name"],
-                            "arguments": json.dumps(call["args"], ensure_ascii=False),
-                        },
-                    }
-                    for call in message.tool_calls
-                ]
-            converted.append(item)
-        else:
-            raise ValueError(f"Unsupported message type: {message.type}")
-    return converted
+from cgent.models.openai_messages import to_openai_messages
 
 
 class OpenAIChatModel(BaseChatModel):
@@ -124,7 +62,7 @@ class OpenAIChatModel(BaseChatModel):
     ) -> ChatResult:
         request: dict[str, Any] = {
             "model": self.model_name,
-            "messages": _messages(messages),
+            "messages": to_openai_messages(messages),
             "stream": False,
             **kwargs,
         }
