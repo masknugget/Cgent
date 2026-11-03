@@ -4,21 +4,44 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PySide6.QtCore import QRectF, Qt, QTimer
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPaintEvent, QTextDocument
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
-from qfluentwidgets import qconfig
+import qtawesome
+from PySide6.QtCore import QPoint, QPropertyAnimation, QRectF, Qt, QTimer, Signal
+from PySide6.QtGui import (
+    QColor,
+    QGuiApplication,
+    QPainter,
+    QPainterPath,
+    QPaintEvent,
+    QResizeEvent,
+    QTextDocument,
+)
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
+from qfluentwidgets import TransparentToolButton, qconfig
 
 from cgent_desktop.models.session import SessionRecord
 from cgent_desktop.theme.tokens import (
+    COPY_FEEDBACK_MS,
+    COPY_SUCCESS_BACKGROUND,
+    COPY_SUCCESS_FOREGROUND,
+    MESSAGE_ACTION_HEIGHT,
     MESSAGE_MAX_WIDTH,
     MESSAGE_MIN_WIDTH,
     RADIUS_BUBBLE,
     RADIUS_CARD,
+    RADIUS_MESSAGE_ACTION,
     SPACE_1,
     SPACE_2,
     SPACE_3,
     SPACE_4,
+    SPACE_5,
     SPACE_7,
     T1,
     T2,
@@ -114,7 +137,8 @@ class MessageBubble(ThemeAwareWidget):
             self._radii = (SPACE_1, RADIUS_BUBBLE, RADIUS_BUBBLE, RADIUS_BUBBLE)
         self.setStyleSheet(
             f"QLabel#messageBody {{ color: {foreground}; background: transparent; "
-            f"border: none; selection-background-color: {colors.primary_soft}; }}"
+            f"border: none; selection-background-color: {colors.selection_background}; "
+            f"selection-color: {colors.selection_foreground}; }}"
         )
         self.update()
 
@@ -125,7 +149,9 @@ class MessageWidget(ThemeAwareWidget):
         self.role = role
         self.setObjectName("messageRow")
         self.bubble = MessageBubble(role, text)
-        now = datetime.now().strftime("%H:%M:%S")
+        created_at = datetime.now()
+        self.name: QLabel | None = None
+        self.time: QLabel | None = None
         outer = QHBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(SPACE_3)
@@ -137,36 +163,147 @@ class MessageWidget(ThemeAwareWidget):
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(SPACE_2)
-        meta = QHBoxLayout()
-        self.time = QLabel(now)
-        self.time.setFont(font(T5, mono=True))
-        self.name = QLabel("我" if role == "user" else "Cgent Agent")
-        self.name.setFont(font(T2, WEIGHT_SEMIBOLD))
-        if role == "user":
-            meta.addStretch()
-            meta.addWidget(self.time)
+        if role == "assistant":
+            meta = QHBoxLayout()
+            self.time = QLabel(created_at.strftime("%H:%M:%S"))
+            self.time.setFont(font(T5, mono=True))
+            self.name = QLabel("Cgent Agent")
+            self.name.setFont(font(T2, WEIGHT_SEMIBOLD))
             meta.addWidget(self.name)
+            meta.addWidget(self.time)
+            meta.addStretch()
+            content_layout.addLayout(meta)
         else:
-            meta.addWidget(self.name)
-            meta.addWidget(self.time)
-            meta.addStretch()
-        content_layout.addLayout(meta)
+            self.bubble.setToolTip(f"发送时间：{created_at.strftime('%Y-%m-%d %H:%M:%S')}")
         content_layout.addWidget(self.bubble)
         if role == "user":
             outer.addStretch()
             outer.addWidget(content, alignment=Qt.AlignmentFlag.AlignTop)
-            outer.addWidget(Avatar("我"), alignment=Qt.AlignmentFlag.AlignTop)
         else:
             outer.addWidget(Avatar("C"), alignment=Qt.AlignmentFlag.AlignTop)
             outer.addWidget(content, alignment=Qt.AlignmentFlag.AlignTop)
             outer.addStretch()
         self.refresh_theme()
 
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        if self.role == "user":
+            self.bubble.setMaximumWidth(min(MESSAGE_MAX_WIDTH, int(self.width() * 0.7)))
+
     def refresh_theme(self) -> None:
         colors = palette()
         self.setStyleSheet("QWidget#messageRow { background: transparent; border: none; }")
-        self.name.setStyleSheet(f"color: {colors.text}; background: transparent;")
-        self.time.setStyleSheet(f"color: {colors.muted}; background: transparent;")
+        if self.name is not None:
+            self.name.setStyleSheet(f"color: {colors.text}; background: transparent;")
+        if self.time is not None:
+            self.time.setStyleSheet(f"color: {colors.muted}; background: transparent;")
+
+
+class ResponseActionBar(QWidget):
+    regenerateRequested = Signal()
+
+    def __init__(self, markdown: str) -> None:
+        super().__init__()
+        self.markdown = markdown
+        self._copied = False
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(SPACE_2)
+        self.copy_button = QPushButton("复制")
+        self.copy_button.setFixedHeight(MESSAGE_ACTION_HEIGHT)
+        self.copy_button.setEnabled(bool(markdown))
+        self.regenerate = TransparentToolButton()
+        self.regenerate.setToolTip("重新生成")
+        self.useful = TransparentToolButton()
+        self.useful.setToolTip("有用")
+        self.improve = TransparentToolButton()
+        self.improve.setToolTip("待改进")
+        self.hint = QLabel("复制为 Markdown 原文")
+        self.hint.setFont(font(T5))
+        layout.addWidget(self.copy_button)
+        layout.addWidget(self.regenerate)
+        layout.addWidget(self.useful)
+        layout.addWidget(self.improve)
+        layout.addStretch()
+        layout.addWidget(self.hint)
+
+        self._toast = QLabel(
+            "✓ 已复制到剪贴板",
+            self,
+            Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint,
+        )
+        self._toast.setFont(font(T5, WEIGHT_SEMIBOLD))
+        self._toast.hide()
+        self._feedback_timer = QTimer(self)
+        self._feedback_timer.setSingleShot(True)
+        self._feedback_timer.timeout.connect(self._reset_copy_feedback)
+        self._fade = QPropertyAnimation(self._toast, b"windowOpacity", self)
+        self._fade.setDuration(180)
+        self._fade.setStartValue(1.0)
+        self._fade.setEndValue(0.0)
+        self._fade.finished.connect(self._toast.hide)
+        self.copy_button.clicked.connect(self.copy_markdown)
+        self.regenerate.clicked.connect(self.regenerateRequested)
+        qconfig.themeChanged.connect(self.refresh_theme)
+        self.refresh_theme()
+
+    def copy_markdown(self) -> None:
+        if not self.markdown:
+            return
+        QGuiApplication.clipboard().setText(self.markdown)
+        self._feedback_timer.stop()
+        self._fade.stop()
+        self._copied = True
+        self._apply_copy_style()
+        self._toast.setWindowOpacity(1.0)
+        self._toast.adjustSize()
+        position = self.copy_button.mapToGlobal(
+            QPoint(0, -self._toast.height() - SPACE_2)
+        )
+        self._toast.move(position)
+        self._toast.show()
+        self._toast.raise_()
+        self._feedback_timer.start(COPY_FEEDBACK_MS)
+
+    def _reset_copy_feedback(self) -> None:
+        self._copied = False
+        self._apply_copy_style()
+        self._fade.stop()
+        self._toast.setWindowOpacity(1.0)
+        self._fade.start()
+
+    def _apply_copy_style(self) -> None:
+        colors = palette()
+        background = COPY_SUCCESS_BACKGROUND if self._copied else colors.card
+        foreground = COPY_SUCCESS_FOREGROUND if self._copied else colors.text
+        border = COPY_SUCCESS_FOREGROUND if self._copied else colors.border
+        self.copy_button.setText("✓ 已复制" if self._copied else "复制")
+        self.copy_button.setIcon(
+            qtawesome.icon("fa5s.copy", color=foreground if self.markdown else colors.muted)
+        )
+        self.copy_button.setStyleSheet(
+            f"QPushButton {{ background: {background}; color: {foreground}; "
+            f"border: 1px solid {border}; border-radius: {RADIUS_MESSAGE_ACTION}px; "
+            f"padding: 0 {SPACE_3}px; }}"
+            f"QPushButton:hover {{ border: 1px solid {border}; }}"
+            f"QPushButton:disabled {{ background: {colors.workspace}; color: {colors.muted}; "
+            f"border: 1px solid {colors.border}; }}"
+        )
+
+    def refresh_theme(self) -> None:
+        colors = palette()
+        self._apply_copy_style()
+        for button, icon_name in (
+            (self.regenerate, "fa5s.redo-alt"),
+            (self.useful, "fa5s.thumbs-up"),
+            (self.improve, "fa5s.thumbs-down"),
+        ):
+            button.setIcon(qtawesome.icon(icon_name, color=colors.secondary))
+        self.hint.setStyleSheet(f"color: {colors.muted}; background: transparent;")
+        self._toast.setStyleSheet(
+            "QLabel { background: #2B2E38; color: #F2F4F8; "
+            f"border-radius: {RADIUS_MESSAGE_ACTION}px; padding: {SPACE_2}px {SPACE_3}px; }}"
+        )
 
 
 class _ProgressCard(ThemeAwareCard):
@@ -196,6 +333,8 @@ class _ProgressCard(ThemeAwareCard):
 class ChatView(QScrollArea):
     """Read-only transcript of the current session."""
 
+    regenerateRequested = Signal()
+
     def __init__(self) -> None:
         super().__init__()
         self.setWidgetResizable(True)
@@ -206,11 +345,12 @@ class ChatView(QScrollArea):
         self.container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._content_layout = QVBoxLayout(self.container)
         self._content_layout.setContentsMargins(SPACE_7, SPACE_7, SPACE_7, SPACE_7)
-        self._content_layout.setSpacing(SPACE_4)
+        self._content_layout.setSpacing(SPACE_5)
         self._content_layout.addStretch()
         self.setWidget(self.container)
         self.messages: list[MessageWidget] = []
         self.tool_rounds: list[ToolRound] = []
+        self.response_actions: list[ResponseActionBar] = []
         self._progress: _ProgressCard | None = None
         self._empty = EmptyState()
         self._content_layout.insertWidget(0, self._empty)
@@ -264,6 +404,7 @@ class ChatView(QScrollArea):
             self._content_layout.insertWidget(self._content_layout.count() - 1, row)
         elif outcome.usage is not None:
             self._add_usage(outcome.usage)
+        self._add_response_actions(outcome.output or outcome.detail)
         self._scroll_to_bottom()
 
     def _add_usage(self, usage: Usage) -> None:
@@ -275,6 +416,21 @@ class ChatView(QScrollArea):
         label.setFont(font(T5, mono=True))
         label.setStyleSheet(f"color: {palette().muted}; background: transparent;")
         self._content_layout.insertWidget(self._content_layout.count() - 1, label)
+
+    def _add_response_actions(self, markdown: str) -> None:
+        self._remove_empty()
+        actions = ResponseActionBar(markdown)
+        actions.regenerateRequested.connect(self.regenerateRequested)
+        self.response_actions.append(actions)
+        row = QWidget()
+        row.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        row.setStyleSheet("background: transparent;")
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.addSpacing(SPACE_7 + SPACE_4)
+        row_layout.addWidget(actions)
+        row_layout.addStretch()
+        self._content_layout.insertWidget(self._content_layout.count() - 1, row)
 
     def _clear_progress(self) -> None:
         if self._progress is not None:
@@ -308,6 +464,7 @@ class ChatView(QScrollArea):
             tool_round.deleteLater()
         self.messages.clear()
         self.tool_rounds.clear()
+        self.response_actions.clear()
         while self._content_layout.count() > 1:
             item = self._content_layout.takeAt(0)
             if item is None:

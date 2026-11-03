@@ -41,7 +41,13 @@ RADIUS_CONTROL = 8
 RADIUS_CARD = 10
 RADIUS_BUBBLE = 12
 RADIUS_COMPOSER = 14
+RADIUS_PREVIEW = 14
+RADIUS_MESSAGE_ACTION = 7
 RADIUS_PILL = 9
+MESSAGE_ACTION_HEIGHT = 28
+COPY_FEEDBACK_MS = 1500
+COPY_SUCCESS_BACKGROUND = "#E7F7EC"
+COPY_SUCCESS_FOREGROUND = "#15803D"
 
 BORDER_WIDTH = 1
 FOCUS_WIDTH = 2
@@ -57,6 +63,10 @@ TOOLBAR_HEIGHT = 52
 STATUS_BAR_HEIGHT = 30
 SIDEBAR_WIDTH = 268
 SIDEBAR_COLLAPSED_WIDTH = 56
+WORKSPACE_PANEL_WIDTH = 300
+WORKSPACE_PANEL_MIN_WIDTH = 220
+WORKSPACE_PANEL_MAX_WIDTH = 480
+WORKSPACE_REFRESH_MS = 250
 TOOL_HEADER_HEIGHT = 38
 INPUT_MIN_HEIGHT = 64
 INPUT_MAX_HEIGHT = 120
@@ -65,6 +75,12 @@ MESSAGE_MAX_WIDTH = 820
 MESSAGE_MIN_WIDTH = 320
 LOG_MIN_HEIGHT = 88
 LOG_MAX_HEIGHT = 260
+PREVIEW_DEFAULT_WIDTH = 780
+PREVIEW_DEFAULT_HEIGHT = 520
+PREVIEW_LINE_NUMBER_WIDTH = 52
+PREVIEW_MAX_TEXT_BYTES = 2 * 1024 * 1024
+PREVIEW_MAX_TEXT_LINES = 2000
+IMAGE_PREVIEW_BACKGROUND = "#1E2026"
 DEFAULT_WIDTH = 1280
 DEFAULT_HEIGHT = 820
 MIN_WIDTH = 960
@@ -80,6 +96,8 @@ class Palette:
     primary_hover: str
     primary_soft: str
     on_primary: str
+    selection_background: str
+    selection_foreground: str
     sidebar: str
     sidebar_input: str
     sidebar_hover: str
@@ -112,6 +130,8 @@ LIGHT = Palette(
     primary_hover="#4338CA",
     primary_soft="#EEF0FF",
     on_primary="#FFFFFF",
+    selection_background="#C7CEF7",
+    selection_foreground="#1F232E",
     sidebar="#1F2128",
     sidebar_input="#2A2D36",
     sidebar_hover="#2A2D36",
@@ -144,6 +164,8 @@ DARK = Palette(
     primary_hover="#818CF8",
     primary_soft="#302E5B",
     on_primary="#FFFFFF",
+    selection_background="#4A4E78",
+    selection_foreground="#F2F4F8",
     sidebar="#1F2128",
     sidebar_input="#2A2D36",
     sidebar_hover="#2A2D36",

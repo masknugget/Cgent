@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel
-from qfluentwidgets import FluentIcon, PushButton, TransparentToolButton
+from qfluentwidgets import FluentIcon, PushButton, ToggleToolButton, TransparentToolButton
 from superqt import QSearchableComboBox
 
 from cgent_desktop.theme.tokens import (
@@ -27,6 +27,7 @@ from cgent_desktop.ui.widgets import ThemeAwareWidget
 class WorkspaceToolbar(ThemeAwareWidget):
     rerunRequested = Signal()
     settingsRequested = Signal()
+    workspaceToggleRequested = Signal()
 
     def __init__(self, workspace_id: str, model_id: str) -> None:
         super().__init__()
@@ -46,6 +47,9 @@ class WorkspaceToolbar(ThemeAwareWidget):
         self.model.setToolTip("当前模型（由 server 配置）")
         self.rerun = PushButton(FluentIcon.SYNC, "重新运行")
         self.rerun.setFont(font(T3))
+        self.directory = ToggleToolButton(FluentIcon.FOLDER)
+        self.directory.setChecked(True)
+        self.directory.setToolTip("目录 · Ctrl+L")
         self.settings = TransparentToolButton(FluentIcon.SETTING)
         self.settings.setToolTip("设置")
         layout.addWidget(self.project)
@@ -53,13 +57,18 @@ class WorkspaceToolbar(ThemeAwareWidget):
         layout.addStretch()
         layout.addWidget(self.model)
         layout.addWidget(self.rerun)
+        layout.addWidget(self.directory)
         layout.addWidget(self.settings)
         self.rerun.clicked.connect(self.rerunRequested)
+        self.directory.clicked.connect(self.workspaceToggleRequested)
         self.settings.clicked.connect(self.settingsRequested)
         self.refresh_theme()
 
     def set_running(self, running: bool) -> None:
         self.rerun.setEnabled(not running)
+
+    def set_workspace_panel_visible(self, visible: bool) -> None:
+        self.directory.setChecked(visible)
 
     def refresh_theme(self) -> None:
         colors = palette()

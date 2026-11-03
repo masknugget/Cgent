@@ -167,7 +167,9 @@ class Composer(ThemeAwareCard):
         )
         self._input.setStyleSheet(
             f"QPlainTextEdit {{ background: {colors.card}; color: {colors.text}; "
-            f"border: none; padding: {SPACE_1}px; selection-background-color: {colors.primary_soft}; }}"
+            f"border: none; padding: {SPACE_1}px; "
+            f"selection-background-color: {colors.selection_background}; "
+            f"selection-color: {colors.selection_foreground}; }}"
         )
         self._action.setStyleSheet(
             f"PrimaryPushButton {{ background: {action_color}; color: {colors.on_primary}; "

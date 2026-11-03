@@ -11,7 +11,13 @@ class SessionRecord:
     detail: str
     input_tokens: int = 0
     output_tokens: int = 0
+    title: str = ""
+    session_id: str = ""
 
     @property
     def total_tokens(self) -> int:
         return self.input_tokens + self.output_tokens
+
+    @property
+    def display_title(self) -> str:
+        return self.title.strip() or self.prompt

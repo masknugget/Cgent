@@ -173,7 +173,8 @@ class ToolCallCard(SimpleCardWidget):
             f"QPlainTextEdit {{ background: {colors.terminal}; color: {colors.terminal_text}; "
             f"border: none; border-bottom-left-radius: {RADIUS_CARD}px; "
             f"border-bottom-right-radius: {RADIUS_CARD}px; padding: {SPACE_3}px; "
-            f"selection-background-color: {colors.primary}; }}"
+            f"selection-background-color: {colors.selection_background}; "
+            f"selection-color: {colors.selection_foreground}; }}"
         )
         self.highlighter.refresh_theme()
 

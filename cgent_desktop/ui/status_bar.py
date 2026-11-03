@@ -76,6 +76,9 @@ class StatusBar(QStatusBar):
         self._invocation = _InvocationLabel()
         self._elapsed_label = QLabel("耗时 --")
         self._elapsed_label.setFont(font(T5, mono=True))
+        self._workspace_hint = QLabel("目录已折叠 · Ctrl+L 展开")
+        self._workspace_hint.setFont(font(T5))
+        self._workspace_hint.hide()
         self._badge = StatusBadge("pending", "idle")
         layout.addWidget(self._dot)
         layout.addWidget(self._connection)
@@ -84,6 +87,7 @@ class StatusBar(QStatusBar):
         layout.addWidget(self._invocation, stretch=1)
         layout.addStretch(1)
         layout.addWidget(self._elapsed_label)
+        layout.addWidget(self._workspace_hint)
         layout.addWidget(self._badge)
         self.addWidget(content, stretch=1)
         qconfig.themeChanged.connect(self.refresh_theme)
@@ -100,6 +104,9 @@ class StatusBar(QStatusBar):
 
     def set_invocation(self, invocation_id: str | None) -> None:
         self._invocation.set_invocation(invocation_id)
+
+    def set_workspace_panel_visible(self, visible: bool) -> None:
+        self._workspace_hint.setVisible(not visible)
 
     def set_note(self, text: str) -> None:
         if text.startswith("状态："):
@@ -137,3 +144,4 @@ class StatusBar(QStatusBar):
         self._project.setStyleSheet(f"color: {colors.secondary};")
         self._invocation.setStyleSheet(f"color: {colors.muted};")
         self._elapsed_label.setStyleSheet(f"color: {colors.secondary};")
+        self._workspace_hint.setStyleSheet(f"color: {colors.muted};")
