@@ -33,9 +33,12 @@ tests/
 ├── unit/
 ├── integration/
 └── e2e/                   # fake model 驱动的真实 DeepAgents 工具循环
-requirements.txt           # 运行依赖
-requirements-dev.txt       # 开发与测试依赖
-pyproject.toml             # 仅包含 pytest、Ruff、ty 配置
+requirements.txt           # 全量运行依赖（Desktop + TUI，间接包含 Cgent）
+requirements-cgent.txt     # 仅 Cgent server
+requirements-tui.txt       # 仅 TUI 客户端
+requirements-desktop.txt   # Desktop 及其内嵌 Cgent server
+requirements-dev.txt       # 全量依赖 + 开发与测试工具
+pyproject.toml             # 包、pytest、Ruff、ty 配置
 ```
 
 ## 本地运行
@@ -47,6 +50,14 @@ python -m venv .venv
 # Linux/macOS: source .venv/bin/activate
 # Windows PowerShell: .venv\Scripts\Activate.ps1
 python -m pip install -r requirements-dev.txt
+```
+
+只运行某一端时，可以缩小安装范围：
+
+```bash
+python -m pip install -r requirements-cgent.txt    # Cgent server
+python -m pip install -r requirements-tui.txt      # TUI（连接已运行的 server）
+python -m pip install -r requirements-desktop.txt  # Desktop + 内嵌 server
 ```
 
 启动前复制并编辑环境文件：

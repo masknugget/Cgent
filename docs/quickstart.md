@@ -17,6 +17,8 @@ python -m venv .venv
 pip install -r requirements-dev.txt
 ```
 
+不运行全量测试时，也可只安装目标端：`requirements-cgent.txt`（server）、`requirements-tui.txt`（终端客户端）或 `requirements-desktop.txt`（Desktop 与内嵌 server）。`requirements.txt` 保留为全量运行依赖入口。
+
 复制并编辑环境文件：
 
 ```bash
