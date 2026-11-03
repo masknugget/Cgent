@@ -220,8 +220,8 @@ Cgent 是仅面向本机的无认证受控执行器，**不是多租户 Sandbox*
 ## 开发验证
 
 ```bash
-ruff check cgent tests
-ruff format --check cgent tests
+ruff check cgent tests cgent_tui
+ruff format --check cgent tests cgent_tui
 ty check
 pytest
 ```
